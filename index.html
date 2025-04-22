@@ -6,6 +6,51 @@
     <title>Fyra Pay - Удобный цифровой кошелек</title>
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=52c1b2f0-bb3c-48c8-aeea-a03ac1d55d5b" type="text/javascript"></script>
     <style>
+        /* Стили для кастомного курсора */
+        .cursor {
+            position: fixed;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: rgba(255, 107, 0, 0.2);
+            border: 1px solid rgba(255, 107, 0, 0.5);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            transition: 
+                width 0.3s ease,
+                height 0.3s ease,
+                background 0.3s ease,
+                border 0.3s ease;
+            z-index: 9999;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            mix-blend-mode: exclusion;
+        }
+        
+        .cursor.cursor-hover {
+            width: 80px;
+            height: 40px;
+            background: rgba(255, 107, 0, 0.3);
+            border: 1px solid rgba(255, 107, 0, 0.8);
+            border-radius: 40px;
+        }
+        
+        .cursor.cursor-active {
+            background: rgba(255, 107, 0, 0.4);
+            transform: translate(-50%, -50%) scale(0.9);
+        }
+        
+        /* Для кнопок с классом btn-primary */
+        .btn-primary ~ .cursor.cursor-hover {
+            background: rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+        
+        /* Отключаем стандартный курсор */
+        body, a, button {
+            cursor: none;
+        }
+        
         /* Cloudflare-like CAPTCHA styles */
         #captcha-overlay {
             position: fixed;
@@ -354,7 +399,7 @@
             font-weight: 600;
             transition: all 0.3s ease;
             border: none;
-            cursor: pointer;
+            cursor: none;
             position: relative;
             overflow: hidden;
             z-index: 1;
@@ -865,7 +910,7 @@
             transition: transform 0.05s ease-out, box-shadow 0.3s ease;
             box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
             background: linear-gradient(45deg, #FF6B00, #FF8C33);
-            cursor: pointer;
+            cursor: none;
         }
         
         .card-image {
@@ -972,6 +1017,9 @@
     </style>
 </head>
 <body>
+    <!-- Кастомный курсор -->
+    <div class="cursor"></div>
+    
     <!-- Cloudflare-like CAPTCHA -->
     <div id="captcha-overlay">
         <div id="captcha-container">
@@ -1165,6 +1213,46 @@
     </footer>
 
     <script>
+        // Кастомный курсор
+        const cursor = document.querySelector('.cursor');
+        
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+        });
+        
+        // Добавляем эффект при наведении на кликабельные элементы
+        const clickableElements = document.querySelectorAll(
+            'a, button, .btn, input[type="submit"], input[type="button"], .card, .feature-card, .terminal-card, .theme-switch, .slider'
+        );
+        
+        clickableElements.forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                if (el.classList.contains('btn-primary')) {
+                    cursor.classList.add('cursor-hover');
+                    // Для кнопок btn-primary делаем курсор больше
+                    cursor.style.width = '90px';
+                    cursor.style.height = '45px';
+                } else {
+                    cursor.classList.add('cursor-hover');
+                }
+            });
+            
+            el.addEventListener('mouseleave', () => {
+                cursor.classList.remove('cursor-hover');
+                cursor.style.width = '30px';
+                cursor.style.height = '30px';
+            });
+            
+            el.addEventListener('mousedown', () => {
+                cursor.classList.add('cursor-active');
+            });
+            
+            el.addEventListener('mouseup', () => {
+                cursor.classList.remove('cursor-active');
+            });
+        });
+        
         // CAPTCHA Implementation
         document.addEventListener('DOMContentLoaded', function() {
             const captchaOverlay = document.getElementById('captcha-overlay');
