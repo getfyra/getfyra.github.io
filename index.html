@@ -6,6 +6,126 @@
     <title>Fyra Pay - Удобный цифровой кошелек</title>
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=52c1b2f0-bb3c-48c8-aeea-a03ac1d55d5b" type="text/javascript"></script>
     <style>
+        /* Cloudflare-like CAPTCHA styles */
+        #captcha-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            transition: opacity 0.5s ease;
+        }
+        
+        #captcha-container {
+            background-color: #f5f7fa;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+            width: 350px;
+            padding: 25px;
+            text-align: center;
+            transform: scale(0.9);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        #captcha-container.active {
+            transform: scale(1);
+            opacity: 1;
+        }
+        
+        .captcha-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .captcha-logo {
+            width: 30px;
+            height: 30px;
+            margin-right: 10px;
+        }
+        
+        .captcha-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .captcha-subtitle {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .captcha-challenge {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .captcha-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .captcha-image {
+            width: 100%;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        
+        .captcha-image:hover {
+            transform: scale(1.03);
+        }
+        
+        .captcha-image.selected {
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+        }
+        
+        .captcha-instructions {
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+        
+        .captcha-progress {
+            height: 4px;
+            background-color: #e0e0e0;
+            border-radius: 2px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        
+        .captcha-progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #4CAF50;
+            transition: width 0.3s ease;
+        }
+        
+        .captcha-footer {
+            font-size: 12px;
+            color: #999;
+            margin-top: 15px;
+        }
+        
         /* Preloader styles */
         #preloader {
             position: fixed;
@@ -20,6 +140,7 @@
             align-items: center;
             z-index: 9999;
             transition: opacity 0.5s ease;
+            opacity: 0;
         }
         
         .loader {
@@ -104,6 +225,7 @@
             background-size: cover;
             background-attachment: fixed;
             background-position: center;
+            overflow: hidden;
         }
         
         /* Анимации появления */
@@ -841,10 +963,40 @@
                 width: 280px;
                 height: 180px;
             }
+            
+            #captcha-container {
+                width: 90%;
+                max-width: 320px;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Cloudflare-like CAPTCHA -->
+    <div id="captcha-overlay">
+        <div id="captcha-container">
+            <div class="captcha-header">
+                <svg class="captcha-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16 0c8.837 0 16 7.163 16 16s-7.163 16-16 16S0 24.837 0 16 7.163 0 16 0zm0 2C8.268 2 2 8.268 2 16s6.268 14 14 14 14-6.268 14-14S23.732 2 16 2zm5.43 7.889l1.413 1.414-9.899 9.9-4.95-4.95 1.414-1.414 3.536 3.536z" fill="#F38020" fill-rule="nonzero"/>
+                </svg>
+                <h3 class="captcha-title">Подтвердите, что вы не робот</h3>
+            </div>
+            <p class="captcha-subtitle">Пожалуйста, выберите все изображения с <strong>кошельками</strong>:</p>
+            
+            <div class="captcha-challenge">
+                <div class="captcha-instructions">Выберите соответствующие изображения</div>
+                <div class="captcha-grid" id="captcha-grid">
+                    <!-- Images will be inserted here by JavaScript -->
+                </div>
+                <div class="captcha-progress">
+                    <div class="captcha-progress-bar" id="captcha-progress"></div>
+                </div>
+            </div>
+            
+            <p class="captcha-footer">Fyra Pay Security • <a href="#" style="color: #999; text-decoration: none;">Политика конфиденциальности</a></p>
+        </div>
+    </div>
+    
     <!-- Preloader -->
     <div id="preloader">
         <div class="loader"></div>
@@ -1013,28 +1165,117 @@
     </footer>
 
     <script>
-        // Preloader
-        const preloader = document.getElementById('preloader');
-        const progressBar = document.getElementById('progress');
-        
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += Math.random() * 10;
-            if (progress > 100) progress = 100;
-            progressBar.style.width = progress + '%';
+        // CAPTCHA Implementation
+        document.addEventListener('DOMContentLoaded', function() {
+            const captchaOverlay = document.getElementById('captcha-overlay');
+            const captchaContainer = document.getElementById('captcha-container');
+            const captchaGrid = document.getElementById('captcha-grid');
+            const captchaProgress = document.getElementById('captcha-progress');
             
-            if (progress >= 100) {
-                clearInterval(interval);
-                setTimeout(() => {
-                    preloader.style.opacity = '0';
+            // Show CAPTCHA container with animation
+            setTimeout(() => {
+                captchaContainer.classList.add('active');
+            }, 100);
+            
+            // CAPTCHA images - 3 wallets and 6 random objects
+            const images = [
+                { src: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', isWallet: true },
+                { src: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', isWallet: true },
+                { src: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', isWallet: true },
+                { src: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', isWallet: false },
+                { src: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', isWallet: false },
+                { src: 'https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', isWallet: false },
+                { src: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', isWallet: false },
+                { src: 'https://images.unsplash.com/photo-1494972308805-463bc619d34e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', isWallet: false },
+                { src: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', isWallet: false }
+            ];
+            
+            // Shuffle images array
+            const shuffledImages = images.sort(() => 0.5 - Math.random());
+            
+            // Create CAPTCHA grid
+            shuffledImages.forEach((image, index) => {
+                const imgElement = document.createElement('img');
+                imgElement.src = image.src;
+                imgElement.className = 'captcha-image';
+                imgElement.dataset.isWallet = image.isWallet;
+                imgElement.dataset.index = index;
+                imgElement.addEventListener('click', handleImageClick);
+                captchaGrid.appendChild(imgElement);
+            });
+            
+            let selectedCount = 0;
+            let correctSelections = 0;
+            
+            function handleImageClick(e) {
+                const img = e.target;
+                const isWallet = img.dataset.isWallet === 'true';
+                
+                if (img.classList.contains('selected')) {
+                    img.classList.remove('selected');
+                    selectedCount--;
+                    if (isWallet) correctSelections--;
+                } else {
+                    img.classList.add('selected');
+                    selectedCount++;
+                    if (isWallet) correctSelections++;
+                }
+                
+                // Update progress bar
+                const progress = (correctSelections / 3) * 100;
+                captchaProgress.style.width = `${progress}%`;
+                
+                // Check if CAPTCHA is solved
+                if (correctSelections === 3 && selectedCount === 3) {
+                    // CAPTCHA solved successfully
                     setTimeout(() => {
-                        preloader.style.display = 'none';
-                        document.body.style.overflow = 'auto';
-                        animateOnScroll();
-                    }, 200);
-                }, 200);
+                        captchaContainer.classList.remove('active');
+                        captchaOverlay.style.opacity = '0';
+                        
+                        setTimeout(() => {
+                            captchaOverlay.style.display = 'none';
+                            startPreloader();
+                        }, 500);
+                    }, 1000);
+                } else if (selectedCount >= 3 && correctSelections < 3) {
+                    // Wrong selection - reset
+                    setTimeout(() => {
+                        document.querySelectorAll('.captcha-image.selected').forEach(img => {
+                            img.classList.remove('selected');
+                        });
+                        selectedCount = 0;
+                        correctSelections = 0;
+                        captchaProgress.style.width = '0%';
+                    }, 500);
+                }
             }
-        }, 200);
+        });
+        
+        function startPreloader() {
+            const preloader = document.getElementById('preloader');
+            const progressBar = document.getElementById('progress');
+            
+            preloader.style.opacity = '1';
+            
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress > 100) progress = 100;
+                progressBar.style.width = progress + '%';
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        preloader.style.opacity = '0';
+                        setTimeout(() => {
+                            preloader.style.display = 'none';
+                            document.body.style.overflow = 'auto';
+                            animateOnScroll();
+                        }, 200);
+                    }, 200);
+                }
+            }, 200);
+        }
         
         // 3D Card Effect
         const card = document.querySelector('.card');
